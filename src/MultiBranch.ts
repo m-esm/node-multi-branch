@@ -55,7 +55,6 @@ export class MultiBranch {
   }
 
   async init() {
-    console.info("MultiBranch initalizing config", this.config);
 
     await UI.bootstrap(this.config);
   }
