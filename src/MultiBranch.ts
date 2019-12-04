@@ -18,7 +18,6 @@ export class MultiBranch {
       ...config
     };
 
-    console.log(process.env["RUNNED_BY_MULTIBRANCH"]);
     if (process.env["RUNNED_BY_MULTIBRANCH"]) {
       console.info("Bootstrap canceled. started from MultiBranch");
       return;
