@@ -3,17 +3,25 @@ import * as _ from "lodash";
 import * as path from "path";
 import * as fs from "fs-extra";
 import { UI } from "./UI";
+import * as redbird from "redbird";
 export class MultiBranch {
   static object: MultiBranch;
   package: any;
-  instances: { [key: string]: processes.ChildProcess } = {};
+  static instances: {
+    [key: string]: {
+      branch: string;
+      port: number;
+      process: processes.ChildProcess;
+    };
+  } = {};
   static async bootstrap(config: MultiBranchConfigInterface) {
     config = {
       ...{
+        port: parseInt(process.env["PORT"]) || 3000,
         repoDir: process.cwd(),
         portENV: "PORT",
         instancesPortStart: 7000,
-        interfacePort: parseInt(process.env["MULTIBRANCH_UI_PORT"]) || 6000
+        interfacePort: parseInt(process.env["MULTIBRANCH_UI_PORT"]) || 8000
       },
       ...config
     };
@@ -27,6 +35,11 @@ export class MultiBranch {
   }
 
   constructor(public config: MultiBranchConfigInterface) {
+    this.setupProxy()
+      .then(() => {})
+      .catch(e => {
+        console.error("MultiBranch setupProxy failed !", e);
+      });
     this.initRetry()
       .then(() => {})
       .catch(e => {
@@ -61,8 +74,6 @@ export class MultiBranch {
     this.package = fs.readJSONSync(
       path.join(this.config.repoDir, "package.json")
     );
-
-    this.instances = {};
 
     const branches = processes
       .execSync("git branch", {
@@ -99,32 +110,55 @@ export class MultiBranch {
 
       customPortEnvObj[this.config.portENV] = lastUsedPort;
 
-      this.instances[branch] = processes.exec("pwd && npm start", {
-        cwd: branchDir,
-        env: {
-          ...(process.env as any),
-          ...customPortEnvObj,
-          ...{
-            RUNNED_BY_MULTIBRANCH: true,
-            BRANCH: branch
+      MultiBranch.instances[branch] = {
+        process: processes.exec("pwd && npm start", {
+          cwd: branchDir,
+          env: {
+            ...(process.env as any),
+            ...customPortEnvObj,
+            ...{
+              RUNNED_BY_MULTIBRANCH: true,
+              BRANCH: branch
+            }
           }
-        }
-      });
+        }),
+        branch,
+        port: lastUsedPort
+      };
 
-      this.instances[branch].stdout.on("data", chunk => {
+      MultiBranch[branch].process.stdout.on("data", chunk => {
         console.log(branch, chunk.toString());
       });
 
-      this.instances[branch].stderr.on("data", chunk => {
+      MultiBranch[branch].process.stderr.on("data", chunk => {
         console.warn(branch, chunk.toString());
       });
 
       lastUsedPort++;
     }
   }
+
+  async setupProxy() {
+    console.info(
+      `MultiBranch PROXY is available at http://0.0.0.0:${this.config.port} `
+    );
+    var proxy = new redbird({
+      port: this.config.port,
+      resolvers: [
+        (host, url: string, req) => {
+          console.log(url, Object.keys(req));
+          if (url.startsWith("/mb")) {
+            req.url = req.url.replace("/mb", "/");
+            return `http://localhost:${this.config.interfacePort}`;
+          }
+        }
+      ]
+    });
+  }
 }
 
 export interface MultiBranchConfigInterface {
+  port?: number;
   repoDir?: string;
   portENV?: string;
 
