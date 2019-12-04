@@ -68,7 +68,11 @@ export class MultiBranch {
           .replace(/ /g, "_")}`
       );
 
+
       fs.ensureDirSync(branchDir);
+
+      fs.emptyDirSync(branchDir);
+
       fs.copySync(this.config.repoDir, branchDir);
 
       processes.execSync(`git checkout ${branch}`, {
