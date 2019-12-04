@@ -58,61 +58,6 @@ export class MultiBranch {
     console.info("MultiBranch initalizing config", this.config);
 
     await UI.bootstrap(this.config);
-
-    this.package = fs.readJSONSync(
-      path.join(this.config.repoDir, "package.json")
-    );
-
-    this.instances = {};
-
-    const branches = processes
-      .execSync("git branch", {
-        cwd: this.config.repoDir
-      })
-      .toString()
-      .split("\n")
-      .map(p => _.trim(p, "* "))
-      .filter(p => p);
-
-    for (const branch of branches) {
-      const branchDir = path.join(
-        this.config.repoDir,
-        "..",
-        `${this.package.name.replace(/ /g, "_")}-${branch
-          .replace(/\//g, "_")
-          .replace(/ /g, "_")}`
-      );
-
-      fs.ensureDirSync(branchDir);
-
-      fs.emptyDirSync(branchDir);
-
-      fs.copySync(this.config.repoDir, branchDir);
-
-      processes.execSync(`git reset HEAD --hard && git checkout ${branch}`, {
-        cwd: branchDir,
-        stdio: "inherit"
-      });
-
-      this.instances[branch] = processes.exec("pwd && npm start", {
-        cwd: branchDir,
-        env: {
-          ...(process.env as any),
-          ...{
-            RUNNED_BY_MULTIBRANCH: true,
-            BRANCH: branch
-          }
-        }
-      });
-
-      this.instances[branch].stdout.on("data", chunk => {
-        console.log(chunk.toString());
-      });
-
-      this.instances[branch].stderr.on("data", chunk => {
-        console.warn(chunk.toString());
-      });
-    }
   }
 }
 
