@@ -30,10 +30,12 @@
   "homepage": "https://github.com/m-esm/node-multi-branch#readme",
   "dependencies": {
     "@types/chalk": "^2.2.0",
+    "@types/express": "^4.17.2",
     "@types/fs-extra": "^8.0.1",
     "@types/lodash": "^4.14.149",
     "@types/node": "^12.12.14",
     "chalk": "^3.0.0",
+    "express": "^4.17.1",
     "fs-extra": "^8.1.0",
     "lodash": "^4.17.15",
     "redbird": "^0.9.1",

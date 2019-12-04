@@ -1,4 +1,4 @@
-import MultiBranch from ".";
+import { MultiBranch } from ".";
 import wrapLogs from "./utils/wrap-logs";
 
 wrapLogs();
