@@ -2,19 +2,22 @@ import * as processes from "child_process";
 import * as _ from "lodash";
 import * as path from "path";
 import * as fs from "fs-extra";
+import { UI } from "./UI";
 export class MultiBranch {
   static object: MultiBranch;
   package: any;
   instances: { [key: string]: processes.ChildProcess } = {};
-  static async bootstrap(
-    config: MultiBranchConfigInterface = {
-      repoDir: process.cwd(),
-      portENV: "PORT",
-      instancesPortStart: 7000,
-      interfacePort: 6000
-    }
-  ) {
-      
+  static async bootstrap(config: MultiBranchConfigInterface) {
+    config = {
+      ...{
+        repoDir: process.cwd(),
+        portENV: "PORT",
+        instancesPortStart: 7000,
+        interfacePort: parseInt(process.env["MULTIBRANCH_UI_PORT"]) || 6000
+      },
+      ...config
+    };
+
     console.log(process.env["RUNNED_BY_MULTIBRANCH"]);
     if (process.env["RUNNED_BY_MULTIBRANCH"]) {
       console.info("Bootstrap canceled. started from MultiBranch");
@@ -53,6 +56,8 @@ export class MultiBranch {
 
   async init() {
     console.info("MultiBranch initalizing config", this.config);
+
+    await UI.bootstrap(this.config);
 
     this.package = fs.readJSONSync(
       path.join(this.config.repoDir, "package.json")
@@ -94,7 +99,8 @@ export class MultiBranch {
         env: {
           ...(process.env as any),
           ...{
-            RUNNED_BY_MULTIBRANCH: true
+            RUNNED_BY_MULTIBRANCH: true,
+            BRANCH: branch
           }
         }
       });
@@ -111,10 +117,10 @@ export class MultiBranch {
 }
 
 export interface MultiBranchConfigInterface {
-  repoDir: string;
-  portENV: string;
+  repoDir?: string;
+  portENV?: string;
 
-  instancesPortStart: number;
+  instancesPortStart?: number;
 
-  interfacePort: number;
+  interfacePort?: number;
 }

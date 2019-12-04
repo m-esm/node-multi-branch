@@ -3,10 +3,10 @@ import wrapLogs from "./utils/wrap-logs";
 
 wrapLogs();
 
-MultiBranch.bootstrap()
-  .then(() => {
-    console.info("Multi branch started !");
-  })
+MultiBranch.bootstrap({
+  portENV: "MULTIBRANCH_UI_PORT"
+})
+  .then(() => {})
   .catch(e => {
     console.error("Error in MultiBranch bootstrap process !", e);
   });
