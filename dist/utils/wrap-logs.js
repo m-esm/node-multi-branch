@@ -10,7 +10,7 @@ exports.__esModule = true;
 var chalk = require("chalk");
 function wrapLogs() {
     var LogSavingLimit = 1000;
-    var colors = { log: "green", warn: "orange", error: "red", info: "cyan" };
+    var colors = { log: "green", warn: "yellow", error: "red", info: "cyan" };
     var _loop_1 = function (type) {
         console["_" + type] = console[type];
         console[type] = function () {

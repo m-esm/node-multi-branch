@@ -2,7 +2,7 @@ import * as chalk from "chalk";
 export default function wrapLogs() {
   const LogSavingLimit = 1000;
 
-  const colors = { log: "green", warn: "orange", error: "red", info: "cyan" };
+  const colors = { log: "green", warn: "yellow", error: "red", info: "cyan" };
   for (const type of ["log", "warn", "error", "info"]) {
     console["_" + type] = (console as any)[type];
     console[type] = (...params: any[]) => {

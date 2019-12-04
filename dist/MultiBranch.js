@@ -1,4 +1,15 @@
 "use strict";
+var __assign = (this && this.__assign) || function () {
+    __assign = Object.assign || function(t) {
+        for (var s, i = 1, n = arguments.length; i < n; i++) {
+            s = arguments[i];
+            for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
+                t[p] = s[p];
+        }
+        return t;
+    };
+    return __assign.apply(this, arguments);
+};
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -43,6 +54,7 @@ var fs = require("fs-extra");
 var MultiBranch = /** @class */ (function () {
     function MultiBranch(config) {
         this.config = config;
+        this.instances = {};
         this.initRetry()
             .then(function () { })["catch"](function (e) {
             console.error("MultiBranch initRetry failed !", e);
@@ -57,7 +69,11 @@ var MultiBranch = /** @class */ (function () {
         }; }
         return __awaiter(this, void 0, void 0, function () {
             return __generator(this, function (_a) {
-                this.instance = new MultiBranch(config);
+                if (process.env["RUNNED_BY_MULTIBRANCH"]) {
+                    console.info("Bootstrap canceled. started from MultiBranch");
+                    return [2 /*return*/];
+                }
+                this.object = new MultiBranch(config);
                 return [2 /*return*/];
             });
         });
@@ -99,6 +115,7 @@ var MultiBranch = /** @class */ (function () {
             return __generator(this, function (_a) {
                 console.info("MultiBranch initalizing config", this.config);
                 this.package = fs.readJSONSync(path.join(this.config.repoDir, "package.json"));
+                this.instances = {};
                 branches = processes
                     .execSync("git branch", {
                     cwd: this.config.repoDir
@@ -109,14 +126,27 @@ var MultiBranch = /** @class */ (function () {
                     .filter(function (p) { return p; });
                 for (_i = 0, branches_1 = branches; _i < branches_1.length; _i++) {
                     branch = branches_1[_i];
-                    branchDir = path
-                        .join(this.config.repoDir, "..", this.package.name + "-" + branch)
+                    branchDir = path.join(this.config.repoDir, "..", this.package.name.replace(/ /g, "_") + "-" + branch
                         .replace(/\//g, "_")
-                        .replace(/ /g, "_");
+                        .replace(/ /g, "_"));
                     fs.ensureDirSync(branchDir);
+                    fs.emptyDirSync(branchDir);
                     fs.copySync(this.config.repoDir, branchDir);
-                    processes.execSync("git checkout " + branch, {
-                        cwd: branchDir
+                    processes.execSync("git reset HEAD --hard && git checkout " + branch, {
+                        cwd: branchDir,
+                        stdio: "inherit"
+                    });
+                    this.instances[branch] = processes.spawn("pwd", [], {
+                        cwd: branchDir,
+                        env: __assign(__assign({}, process.env), {
+                            RUNNED_BY_MULTIBRANCH: true
+                        })
+                    });
+                    this.instances[branch].stdout.on("data", function (chunk) {
+                        console.log(chunk.toString());
+                    });
+                    this.instances[branch].stderr.on("data", function (chunk) {
+                        console.warn(chunk.toString());
                     });
                 }
                 return [2 /*return*/];
