@@ -6,14 +6,12 @@ export class UI {
   static async bootstrap(config: MultiBranchConfigInterface) {
     this.server = express();
 
-    this.server.get("/", (req, res) => {
+    this.server.get("/api/info", (req, res) => {
       res.json({
         NODE_ENV: process.env["NODE_ENV"],
         BRANCH: process.env["BRANCH"],
-        processes: _.pick(
-          Object.values(MultiBranch.instances),
-          "port",
-          "branch"
+        processes: Object.values(MultiBranch.instances).map(p =>
+          _.pick(p, "port", "branch")
         )
       });
     });

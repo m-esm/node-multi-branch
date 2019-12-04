@@ -14,6 +14,7 @@ export class MultiBranch {
       process: processes.ChildProcess;
     };
   } = {};
+  static proxy: any;
   static async bootstrap(config: MultiBranchConfigInterface) {
     config = {
       ...{
@@ -32,6 +33,16 @@ export class MultiBranch {
     }
 
     this.object = new MultiBranch(config);
+
+    process.on("exit", code => {
+      console.warn(
+        `Process is exiting with code ${code} ! closing processes ...`
+      );
+      Object.values(MultiBranch.instances).forEach(instance => {
+        console.warn(`Closing instance: ${instance.branch}`);
+        instance.process.kill(code);
+      });
+    });
   }
 
   constructor(public config: MultiBranchConfigInterface) {
@@ -126,11 +137,11 @@ export class MultiBranch {
         port: lastUsedPort
       };
 
-      MultiBranch[branch].process.stdout.on("data", chunk => {
+      MultiBranch.instances[branch].process.stdout.on("data", chunk => {
         console.log(branch, chunk.toString());
       });
 
-      MultiBranch[branch].process.stderr.on("data", chunk => {
+      MultiBranch.instances[branch].process.stderr.on("data", chunk => {
         console.warn(branch, chunk.toString());
       });
 
@@ -142,11 +153,10 @@ export class MultiBranch {
     console.info(
       `MultiBranch PROXY is available at http://0.0.0.0:${this.config.port} `
     );
-    var proxy = new redbird({
+    MultiBranch.proxy = new redbird({
       port: this.config.port,
       resolvers: [
         (host, url: string, req) => {
-          console.log(url, Object.keys(req));
           if (url.startsWith("/mb")) {
             req.url = req.url.replace("/mb", "/");
             return `http://localhost:${this.config.interfacePort}`;
