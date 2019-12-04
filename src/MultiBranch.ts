@@ -73,6 +73,8 @@ export class MultiBranch {
       .map(p => _.trim(p, "* "))
       .filter(p => p);
 
+    let lastUsedPort = this.config.instancesPortStart;
+
     for (const branch of branches) {
       const branchDir = path.join(
         this.config.repoDir,
@@ -93,10 +95,15 @@ export class MultiBranch {
         stdio: "inherit"
       });
 
+      const customPortEnvObj = {};
+
+      customPortEnvObj[this.config.portENV] = lastUsedPort;
+
       this.instances[branch] = processes.exec("pwd && npm start", {
         cwd: branchDir,
         env: {
           ...(process.env as any),
+          ...customPortEnvObj,
           ...{
             RUNNED_BY_MULTIBRANCH: true,
             BRANCH: branch
@@ -105,12 +112,14 @@ export class MultiBranch {
       });
 
       this.instances[branch].stdout.on("data", chunk => {
-        console.log(chunk.toString());
+        console.log(branch, chunk.toString());
       });
 
       this.instances[branch].stderr.on("data", chunk => {
-        console.warn(chunk.toString());
+        console.warn(branch, chunk.toString());
       });
+
+      lastUsedPort++;
     }
   }
 }
