@@ -73,7 +73,7 @@ const args: any = argv
     return;
   }
 
-  if (process.env["NODE_ENV"] === args.only || "staging") {
+  if (process.env["NODE_ENV"] === (args.only || "staging")) {
     console.log("\n");
     console.log(chalk.yellow(figlet.textSync("MB", { font: "isometric2" })));
     console.log("\n");
