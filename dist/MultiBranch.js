@@ -216,6 +216,9 @@ var MultiBranch = /** @class */ (function () {
                                 return "http://localhost:" + _this.config.interfacePort;
                             }
                             var branch = req.headers.branch || _this.config.defaultBranch;
+                            var instance = MultiBranch.instances[branch];
+                            if (!instance)
+                                return;
                             return "http://localhost:" + MultiBranch.instances[branch].port;
                         }
                     ]

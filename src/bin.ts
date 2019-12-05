@@ -78,6 +78,13 @@ const args: any = argv
     console.log(chalk.yellow(figlet.textSync("MB", { font: "isometric2" })));
     console.log("\n");
 
+    process.on("exit", () => {
+      Object.values(MultiBranch.instances).forEach(p => {
+        p.process.kill("SIGKILL");
+        console.warn("Killed " + p.branch);
+      });
+    });
+
     MultiBranch.bootstrap({
       portENV: args["port-env"],
       defaultBranch: args["default-branch"],

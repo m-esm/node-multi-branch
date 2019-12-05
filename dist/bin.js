@@ -98,11 +98,22 @@ var args = argv
             console.log("\n");
             console.log(chalk.yellow(figlet.textSync("MB", { font: "isometric2" })));
             console.log("\n");
+            process.on("exit", function () {
+                Object.values(_1.MultiBranch.instances).forEach(function (p) {
+                    p.process.kill("SIGKILL");
+                    console.warn("Killed " + p.branch);
+                });
+            });
             _1.MultiBranch.bootstrap({
                 portENV: args["port-env"],
                 defaultBranch: args["default-branch"],
                 port: parseInt(args.port),
-                branches: args.branches,
+                branches: args.branches
+                    ? args.branches
+                        .trim()
+                        .split(",")
+                        .filter(function (p) { return p; })
+                    : undefined,
                 repoDir: args.dir ? path.join(__dirname, args.dir) : undefined
             })
                 .then(function () { })["catch"](function (e) {

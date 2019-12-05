@@ -174,6 +174,9 @@ export class MultiBranch {
 
           const branch = req.headers.branch || this.config.defaultBranch;
 
+          const instance = MultiBranch.instances[branch];
+          if (!instance) return;
+
           return `http://localhost:${MultiBranch.instances[branch].port}`;
         }
       ]
