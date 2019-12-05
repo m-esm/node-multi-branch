@@ -167,8 +167,8 @@ export class MultiBranch {
       port: this.config.port,
       resolvers: [
         (host: string, url: string, req) => {
-          if (url.startsWith("/mb")) {
-            req.url = req.url.replace("/mb", "/");
+          if (url.startsWith("/multi-branch")) {
+            req.url = req.url.replace("/multi-branch", "/");
             return `http://localhost:${this.config.interfacePort}`;
           }
 
