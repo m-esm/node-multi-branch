@@ -82,7 +82,12 @@ const args: any = argv
       portENV: args["port-env"],
       defaultBranch: args["default-branch"],
       port: parseInt(args.port),
-      branches: args.branches ? args.branches.split(",") : undefined,
+      branches: args.branches
+        ? args.branches
+            .trim()
+            .split(",")
+            .filter(p => p)
+        : undefined,
       repoDir: args.dir ? path.join(__dirname, args.dir) : undefined
     })
       .then(() => {})
