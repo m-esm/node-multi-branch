@@ -79,10 +79,10 @@ const args: any = argv
     console.log("\n");
 
     MultiBranch.bootstrap({
-      portENV: args["port-env"] ,
+      portENV: args["port-env"],
       defaultBranch: args["default-branch"],
       port: parseInt(args.port),
-      branches: args.branches,
+      branches: args.branches ? args.branches.split(",") : undefined,
       repoDir: args.dir ? path.join(__dirname, args.dir) : undefined
     })
       .then(() => {})
