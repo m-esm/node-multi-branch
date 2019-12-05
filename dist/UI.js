@@ -36,15 +36,33 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 exports.__esModule = true;
+var express = require("express");
+var _ = require("lodash");
+var MultiBranch_1 = require("./MultiBranch");
 var UI = /** @class */ (function () {
     function UI() {
     }
-    UI.bootstrap = function () {
-        return __awaiter(this, void 0, void 0, function () { return __generator(this, function (_a) {
-            return [2 /*return*/];
-        }); });
+    UI.bootstrap = function (config) {
+        return __awaiter(this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                this.server = express();
+                this.server.get("/api/info", function (req, res) {
+                    res.json({
+                        NODE_ENV: process.env["NODE_ENV"],
+                        BRANCH: process.env["BRANCH"],
+                        processes: Object.values(MultiBranch_1.MultiBranch.instances).map(function (p) {
+                            return _.pick(p, "port", "branch");
+                        })
+                    });
+                });
+                this.server.listen(config.interfacePort, "0.0.0.0", function () {
+                    console.info("MultiBranch UI is available at http://0.0.0.0:" + config.interfacePort + " ");
+                });
+                return [2 /*return*/];
+            });
+        });
     };
     return UI;
 }());
-exports["default"] = UI;
+exports.UI = UI;
 //# sourceMappingURL=UI.js.map

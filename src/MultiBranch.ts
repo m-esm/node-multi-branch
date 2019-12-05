@@ -21,10 +21,13 @@ export class MultiBranch {
         port: parseInt(process.env["PORT"]) || 3000,
         repoDir: process.cwd(),
         portENV: "PORT",
+        defaultBranch: "master",
         instancesPortStart: 7000,
         interfacePort: parseInt(process.env["MULTIBRANCH_UI_PORT"]) || 8000
       },
-      ...config
+      ..._.pickBy(config, value => {
+        return value;
+      })
     };
 
     if (process.env["RUNNED_BY_MULTIBRANCH"]) {
@@ -32,7 +35,7 @@ export class MultiBranch {
       return;
     }
 
-    this.object = new MultiBranch(config);
+    new MultiBranch(config);
 
     process.on("exit", code => {
       console.warn(
@@ -40,7 +43,7 @@ export class MultiBranch {
       );
       Object.values(MultiBranch.instances).forEach(instance => {
         console.warn(`Closing instance: ${instance.branch}`);
-        instance.process.kill(code);
+        instance.process.kill("SIGKILL");
       });
     });
   }
@@ -86,18 +89,21 @@ export class MultiBranch {
       path.join(this.config.repoDir, "package.json")
     );
 
-    const branches = processes
-      .execSync("git branch", {
-        cwd: this.config.repoDir
-      })
-      .toString()
-      .split("\n")
-      .map(p => _.trim(p, "* "))
-      .filter(p => p);
+    const branches =
+      this.config.branches ||
+      processes
+        .execSync("git branch", {
+          cwd: this.config.repoDir,
+          stdio: "pipe"
+        })
+        .toString()
+        .split("\n")
+        .map(p => _.trim(p, "* "))
+        .filter(p => p);
 
     let lastUsedPort = this.config.instancesPortStart;
 
-    for (const branch of branches) {
+    const promises = branches.map(branch => async () => {
       const branchDir = path.join(
         this.config.repoDir,
         "..",
@@ -106,15 +112,17 @@ export class MultiBranch {
           .replace(/ /g, "_")}`
       );
 
-      fs.ensureDirSync(branchDir);
+      await fs.ensureDir(branchDir);
 
-      fs.emptyDirSync(branchDir);
+      await fs.emptyDir(branchDir);
 
-      fs.copySync(this.config.repoDir, branchDir);
+      console.info(`Copying repository to create "${branch}" branch folder`);
+
+      await fs.copy(this.config.repoDir, branchDir);
 
       processes.execSync(`git reset HEAD --hard && git checkout ${branch}`, {
         cwd: branchDir,
-        stdio: "inherit"
+        stdio: "ignore"
       });
 
       const customPortEnvObj = {};
@@ -138,15 +146,17 @@ export class MultiBranch {
       };
 
       MultiBranch.instances[branch].process.stdout.on("data", chunk => {
-        console.log(branch, chunk.toString());
+        console.log(`[${branch}]\n`, (chunk || "").toString());
       });
 
       MultiBranch.instances[branch].process.stderr.on("data", chunk => {
-        console.warn(branch, chunk.toString());
+        console.warn(`[${branch}]\n`, (chunk || "").toString());
       });
 
       lastUsedPort++;
-    }
+    });
+
+    await Promise.all(promises.map(p => p()));
   }
 
   async setupProxy() {
@@ -156,11 +166,15 @@ export class MultiBranch {
     MultiBranch.proxy = new redbird({
       port: this.config.port,
       resolvers: [
-        (host, url: string, req) => {
+        (host: string, url: string, req) => {
           if (url.startsWith("/mb")) {
             req.url = req.url.replace("/mb", "/");
             return `http://localhost:${this.config.interfacePort}`;
           }
+
+          const branch = req.headers.branch || this.config.defaultBranch;
+
+          return `http://localhost:${MultiBranch.instances[branch].port}`;
         }
       ]
     });
@@ -168,9 +182,12 @@ export class MultiBranch {
 }
 
 export interface MultiBranchConfigInterface {
+  branches?: string[];
   port?: number;
   repoDir?: string;
   portENV?: string;
+
+  defaultBranch?: string;
 
   instancesPortStart?: number;
 
