@@ -75,7 +75,9 @@ var MultiBranch = /** @class */ (function () {
                     defaultBranch: "master",
                     instancesPortStart: 7000,
                     interfacePort: parseInt(process.env["MULTIBRANCH_UI_PORT"]) || 8000
-                }, config);
+                }, _.pickBy(config, function (value) {
+                    return value;
+                }));
                 if (process.env["RUNNED_BY_MULTIBRANCH"]) {
                     console.info("Bootstrap canceled. started from MultiBranch");
                     return [2 /*return*/];
@@ -135,15 +137,16 @@ var MultiBranch = /** @class */ (function () {
                     case 1:
                         _a.sent();
                         this.package = fs.readJSONSync(path.join(this.config.repoDir, "package.json"));
-                        branches = processes
-                            .execSync("git branch", {
-                            cwd: this.config.repoDir,
-                            stdio: "pipe"
-                        })
-                            .toString()
-                            .split("\n")
-                            .map(function (p) { return _.trim(p, "* "); })
-                            .filter(function (p) { return p; });
+                        branches = this.config.branches ||
+                            processes
+                                .execSync("git branch", {
+                                cwd: this.config.repoDir,
+                                stdio: "pipe"
+                            })
+                                .toString()
+                                .split("\n")
+                                .map(function (p) { return _.trim(p, "* "); })
+                                .filter(function (p) { return p; });
                         lastUsedPort = this.config.instancesPortStart;
                         promises = branches.map(function (branch) { return function () { return __awaiter(_this, void 0, void 0, function () {
                             var branchDir, customPortEnvObj;
