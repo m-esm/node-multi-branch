@@ -47,7 +47,8 @@ const args: any = argv
     },
     {
       name: "only",
-      type: "string"
+      type: "string",
+      short: "o"
     }
   ])
   .run().options;
