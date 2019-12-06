@@ -15,13 +15,37 @@
 
 It runs an instance per branch of your node project repository. and let you access different branches by setting a header key.
 
-#### [GET] /multi-branch
+### Installation
 
-this route will be available at top of reverse proxy server and shows you information about branch processes
+1. install the package
 
-#### [GET] /multi-branch/stats
+```
+npm install multi-branch --save
+```
 
-get last 100 process usage stat
+2. add this command to your existing npm start command
+
+```
+multi-branch --only=staging --branches=master,stage --default-branch=stage &&
+```
+
+example (package.json):
+
+```json
+{
+  "name": ...,
+  "version": ...,
+  "repository": ...,
+  "author": ...,
+  "license": ...,
+  "scripts": {
+    "start": "multi-branch --only=staging --branches=master,stage --default-branch=stage && node app.js"
+  },
+  "dependencies": {
+    ...
+  }
+}
+```
 
 **arguments:**
 
@@ -38,3 +62,13 @@ get last 100 process usage stat
 
     -h,--help to view help
 ```
+
+### Maintenance routes
+
+#### [GET] /multi-branch
+
+this route will be available at top of reverse proxy server and shows you information about branch processes
+
+#### [GET] /multi-branch/stats
+
+get last 100 process usage stat
