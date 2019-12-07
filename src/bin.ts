@@ -76,7 +76,7 @@ const args: any = argv
     return;
   }
 
-  if (process.env["NODE_ENV"] === (args.only || "staging")) {
+  if ((process.env["NODE_ENV"] || process.env["NODE_CONFIG_ENV"]  ) === (args.only || "staging")) {
     console.log(
       "\n\n\n",
       chalk.blueBright(figlet.textSync("MB", { font: "isometric2" })),
