@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+if (process.env["RUNNED_BY_MULTIBRANCH"]) process.exit();
+
 import { MultiBranch } from ".";
 import wrapLogs from "./utils/wrap-logs";
 import * as argv from "argv";
@@ -76,9 +78,9 @@ const args: any = argv
 
   if (process.env["NODE_ENV"] === (args.only || "staging")) {
     console.log(
-      "\n\n",
+      "\n\n\n",
       chalk.blueBright(figlet.textSync("MB", { font: "isometric2" })),
-      "\n\n"
+      "\n\n\n"
     );
 
     process.on("exit", () => {

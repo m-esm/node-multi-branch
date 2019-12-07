@@ -37,6 +37,8 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 exports.__esModule = true;
+if (process.env["RUNNED_BY_MULTIBRANCH"])
+    process.exit();
 var _1 = require(".");
 var wrap_logs_1 = require("./utils/wrap-logs");
 var argv = require("argv");
@@ -96,9 +98,7 @@ var args = argv
             return [2 /*return*/];
         }
         if (process.env["NODE_ENV"] === (args.only || "staging")) {
-            console.log("\n");
-            console.log(chalk.yellow(figlet.textSync("MB", { font: "isometric2" })));
-            console.log("\n");
+            console.log("\n\n\n", chalk.blueBright(figlet.textSync("MB", { font: "isometric2" })), "\n\n\n");
             process.on("exit", function () {
                 Object.values(_1.MultiBranch.instances).forEach(function (p) {
                     p.process.kill("SIGKILL");

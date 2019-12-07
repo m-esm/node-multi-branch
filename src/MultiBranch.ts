@@ -15,6 +15,7 @@ export class MultiBranch {
     };
   } = {};
   static proxy: any;
+  static ready: boolean;
   static async bootstrap(config: MultiBranchConfigInterface) {
     config = {
       ...{
@@ -157,6 +158,8 @@ export class MultiBranch {
     });
 
     await Promise.all(promises.map(p => p()));
+
+    MultiBranch.ready = true;
   }
 
   async setupProxy() {
@@ -172,12 +175,21 @@ export class MultiBranch {
             return `http://localhost:${this.config.interfacePort}`;
           }
 
-          const branch = req.headers.branch || this.config.defaultBranch;
+          if(!MultiBranch.ready)
+          return `http://localhost:${this.config.interfacePort}/logs`;
 
-          const instance = MultiBranch.instances[branch];
-          if (!instance) return;
 
-          return `http://localhost:${MultiBranch.instances[branch].port}`;
+          const branch: string =
+            req.headers.branch || this.config.defaultBranch;
+
+          if (branch.startsWith("http://") || branch.startsWith("https://")) {
+            return branch;
+          } else {
+            const instance = MultiBranch.instances[branch];
+            if (!instance)
+              return `http://localhost:${this.config.interfacePort}/instance-not-found/${branch}`;
+            return `http://localhost:${MultiBranch.instances[branch].port}`;
+          }
         }
       ]
     });

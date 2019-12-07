@@ -197,6 +197,7 @@ var MultiBranch = /** @class */ (function () {
                         return [4 /*yield*/, Promise.all(promises.map(function (p) { return p(); }))];
                     case 2:
                         _a.sent();
+                        MultiBranch.ready = true;
                         return [2 /*return*/];
                 }
             });
@@ -211,15 +212,22 @@ var MultiBranch = /** @class */ (function () {
                     port: this.config.port,
                     resolvers: [
                         function (host, url, req) {
-                            if (url.startsWith("/mb")) {
-                                req.url = req.url.replace("/mb", "/");
+                            if (url.startsWith("/multi-branch")) {
+                                req.url = req.url.replace("/multi-branch", "/");
                                 return "http://localhost:" + _this.config.interfacePort;
                             }
+                            if (!MultiBranch.ready)
+                                return "http://localhost:" + _this.config.interfacePort + "/logs";
                             var branch = req.headers.branch || _this.config.defaultBranch;
-                            var instance = MultiBranch.instances[branch];
-                            if (!instance)
-                                return;
-                            return "http://localhost:" + MultiBranch.instances[branch].port;
+                            if (branch.startsWith("http://") || branch.startsWith("https://")) {
+                                return branch;
+                            }
+                            else {
+                                var instance = MultiBranch.instances[branch];
+                                if (!instance)
+                                    return "http://localhost:" + _this.config.interfacePort + "/instance-not-found/" + branch;
+                                return "http://localhost:" + MultiBranch.instances[branch].port;
+                            }
                         }
                     ]
                 });
