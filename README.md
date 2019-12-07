@@ -73,4 +73,6 @@ this route will be available at top of reverse proxy server and shows you inform
 
 get last 100 process usage stat
 
+#### [GET] /multi-branch/logs
+
 ![Multi-Branch logs](https://raw.githubusercontent.com/m-esm/node-multi-branch/master/screenshot-logs.png "Multi-Branch logs")
