@@ -80,7 +80,7 @@ var UI = /** @class */ (function () {
                                 processes: Object.values(MultiBranch_1.MultiBranch.instances).map(function (p) {
                                     p = _.pick(p, "port", "branch", "process.pid");
                                     if (p.process && p.process.pid) {
-                                        var stat = _.sortBy(process_monitor_1.monitoringHistory.filter(function (d) { return d && d.pid == p.process.pid; }), function (d) { return d.date * -1; })[0];
+                                        var stat = _.sortBy(process_monitor_1.monitoringHistory.filter(function (d) { return d && d.pid == p.process.pid; }), function (d) { return d.date * -1; })[0] || {};
                                         p.process.stats = __assign({ date: stat.date }, stat.result);
                                     }
                                     return p;
@@ -100,24 +100,20 @@ var UI = /** @class */ (function () {
     };
     UI.setupMonitoring = function () {
         return __awaiter(this, void 0, void 0, function () {
-            var pids;
             var _this = this;
             return __generator(this, function (_a) {
-                pids = Object.values(MultiBranch_1.MultiBranch.instances).map(function (p) { return p.process.pid; });
-                if (pids.length)
-                    console.info("Monitoring PID's:", pids.join(" , "));
-                if (pids.length == 0) {
-                    setTimeout(function () {
-                        _this.setupMonitoring();
-                    }, 1000);
-                    return [2 /*return*/];
-                }
-                else {
+                this.pids = Object.values(MultiBranch_1.MultiBranch.instances).map(function (p) { return p.process.pid; });
+                if (this.pids.length)
+                    console.info("Monitoring PID's:", this.pids.join(" , "));
+                if (this.pids.length != 0) {
                     process_monitor_1.monitor({
-                        pid: pids,
+                        pid: this.pids,
                         interval: 1000
                     });
                 }
+                setTimeout(function () {
+                    _this.setupMonitoring();
+                }, 10000);
                 return [2 /*return*/];
             });
         });

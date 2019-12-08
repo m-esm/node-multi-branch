@@ -5,6 +5,7 @@ import { monitor, monitoringHistory } from "./utils/process-monitor";
 import { logHistory } from "./utils/wrap-logs";
 export class UI {
   static server: express.Application;
+  static pids: number[];
   static async bootstrap(config: MultiBranchConfigInterface) {
     this.server = express();
 
@@ -104,10 +105,11 @@ ${logHistory.join("\n")}
         processes: Object.values(MultiBranch.instances).map((p: any) => {
           p = _.pick(p, "port", "branch", "process.pid");
           if (p.process && p.process.pid) {
-            const stat = _.sortBy(
-              monitoringHistory.filter(d => d && d.pid == p.process.pid),
-              d => d.date * -1
-            )[0];
+            const stat =
+              _.sortBy(
+                monitoringHistory.filter(d => d && d.pid == p.process.pid),
+                d => d.date * -1
+              )[0] || {};
             p.process.stats = { ...{ date: stat.date }, ...stat.result };
           }
           return p;
@@ -124,18 +126,19 @@ ${logHistory.join("\n")}
   }
 
   static async setupMonitoring() {
-    const pids = Object.values(MultiBranch.instances).map(p => p.process.pid);
-    if (pids.length) console.info("Monitoring PID's:", pids.join(" , "));
-    if (pids.length == 0) {
-      setTimeout(() => {
-        this.setupMonitoring();
-      }, 1000);
-      return;
-    } else {
+    this.pids = Object.values(MultiBranch.instances).map(p => p.process.pid);
+
+    if (this.pids.length)
+      console.info("Monitoring PID's:", this.pids.join(" , "));
+    if (this.pids.length != 0) {
       monitor({
-        pid: pids,
+        pid: this.pids,
         interval: 1000
       });
     }
+
+    setTimeout(() => {
+      this.setupMonitoring();
+    }, 10000);
   }
 }
