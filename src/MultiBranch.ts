@@ -105,59 +105,9 @@ export class MultiBranch {
     let lastUsedPort = this.config.instancesPortStart;
 
     const promises = branches.map(branch => async () => {
-      const branchDir = path.join(
-        this.config.repoDir,
-        "..",
-        `${this.package.name.replace(/ /g, "_")}-${branch
-          .replace(/\//g, "_")
-          .replace(/ /g, "_")}`
-      );
-
-      await fs.ensureDir(branchDir);
-
-      await fs.emptyDir(branchDir);
-
-      console.info(`Copying repository to create "${branch}" branch folder`);
-
-      await fs.copy(this.config.repoDir, branchDir);
-
-      processes.execSync(`git reset HEAD --hard && git checkout ${branch}`, {
-        cwd: branchDir,
-        stdio: "ignore"
-      });
-
-      const customPortEnvObj = {};
-
-      customPortEnvObj[this.config.portENV] = lastUsedPort;
-
-      MultiBranch.instances[branch] = {
-        process: processes.exec("pwd && npm start", {
-          cwd: branchDir,
-          env: {
-            ...(process.env as any),
-            ...customPortEnvObj,
-            ...{
-              RUNNED_BY_MULTIBRANCH: true,
-              BRANCH: branch
-            }
-          }
-        }),
-        branch,
-        port: lastUsedPort
-      };
-
-      MultiBranch.instances[branch].process.stdout.on("data", chunk => {
-        //console.log(`[${branch}]\n`, (chunk || "").toString());
-        process.stdout.write(chunk)
-      });
-
-      MultiBranch.instances[branch].process.stderr.on("data", chunk => {
-        // console.warn(`[${branch}]\n`, (chunk || "").toString());
-        process.stderr.write(chunk)
-
-      });
-
       lastUsedPort++;
+
+      return this.runInstance(branch, lastUsedPort);
     });
 
     await Promise.all(promises.map(p => p()));
@@ -165,6 +115,67 @@ export class MultiBranch {
     MultiBranch.ready = true;
   }
 
+  async runInstance(branch: string, port: number) {
+    const branchDir = path.join(
+      this.config.repoDir,
+      "..",
+      `${this.package.name.replace(/ /g, "_")}-${branch
+        .replace(/\//g, "_")
+        .replace(/ /g, "_")}`
+    );
+
+    await fs.ensureDir(branchDir);
+
+    await fs.emptyDir(branchDir);
+
+    console.info(`Copying repository to create "${branch}" branch folder`);
+
+    await fs.copy(this.config.repoDir, branchDir);
+
+    processes.execSync(`git reset HEAD --hard && git checkout ${branch}`, {
+      cwd: branchDir,
+      stdio: "ignore"
+    });
+
+    const customPortEnvObj = {};
+
+    customPortEnvObj[this.config.portENV] = port;
+
+    MultiBranch.instances[branch] = {
+      process: processes.exec("pwd && npm start", {
+        cwd: branchDir,
+        env: {
+          ...(process.env as any),
+          ...customPortEnvObj,
+          ...{
+            RUNNED_BY_MULTIBRANCH: true,
+            BRANCH: branch
+          }
+        }
+      }),
+      branch,
+      port: port
+    };
+
+    MultiBranch.instances[branch].process.stdout.on("data", chunk => {
+      //console.log(`[${branch}]\n`, (chunk || "").toString());
+      process.stdout.write(chunk);
+    });
+
+    MultiBranch.instances[branch].process.stderr.on("data", chunk => {
+      // console.warn(`[${branch}]\n`, (chunk || "").toString());
+      process.stderr.write(chunk);
+    });
+    MultiBranch.instances[branch].process.on("exit", code => {
+      // console.warn(`[${branch}]\n`, (chunk || "").toString());
+      console.warn(
+        `process of "${branch}" branch exited(code:${code}) ! starting again in 3 seconds ...`
+      );
+      setTimeout(() => {
+        this.runInstance(branch, port);
+      }, 3000);
+    });
+  }
   async setupProxy() {
     console.info(
       `MultiBranch PROXY is available at http://0.0.0.0:${this.config.port} `
@@ -178,9 +189,8 @@ export class MultiBranch {
             return `http://localhost:${this.config.interfacePort}`;
           }
 
-          if(!MultiBranch.ready)
-          return `http://localhost:${this.config.interfacePort}/logs`;
-
+          if (!MultiBranch.ready)
+            return `http://localhost:${this.config.interfacePort}/logs`;
 
           const branch: string =
             req.headers.branch || this.config.defaultBranch;

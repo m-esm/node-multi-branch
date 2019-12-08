@@ -105,7 +105,7 @@ var UI = /** @class */ (function () {
             return __generator(this, function (_a) {
                 pids = Object.values(MultiBranch_1.MultiBranch.instances).map(function (p) { return p.process.pid; });
                 if (pids.length)
-                    console.info("setupMonitoring PID:", pids.join(" , "));
+                    console.info("Monitoring PID's:", pids.join(" , "));
                 if (pids.length == 0) {
                     setTimeout(function () {
                         _this.setupMonitoring();

@@ -125,7 +125,7 @@ ${logHistory.join("\n")}
 
   static async setupMonitoring() {
     const pids = Object.values(MultiBranch.instances).map(p => p.process.pid);
-    if (pids.length) console.info("setupMonitoring PID:", pids.join(" , "));
+    if (pids.length) console.info("Monitoring PID's:", pids.join(" , "));
     if (pids.length == 0) {
       setTimeout(() => {
         this.setupMonitoring();

@@ -149,57 +149,72 @@ var MultiBranch = /** @class */ (function () {
                                 .filter(function (p) { return p; });
                         lastUsedPort = this.config.instancesPortStart;
                         promises = branches.map(function (branch) { return function () { return __awaiter(_this, void 0, void 0, function () {
-                            var branchDir, customPortEnvObj;
                             return __generator(this, function (_a) {
-                                switch (_a.label) {
-                                    case 0:
-                                        branchDir = path.join(this.config.repoDir, "..", this.package.name.replace(/ /g, "_") + "-" + branch
-                                            .replace(/\//g, "_")
-                                            .replace(/ /g, "_"));
-                                        return [4 /*yield*/, fs.ensureDir(branchDir)];
-                                    case 1:
-                                        _a.sent();
-                                        return [4 /*yield*/, fs.emptyDir(branchDir)];
-                                    case 2:
-                                        _a.sent();
-                                        console.info("Copying repository to create \"" + branch + "\" branch folder");
-                                        return [4 /*yield*/, fs.copy(this.config.repoDir, branchDir)];
-                                    case 3:
-                                        _a.sent();
-                                        processes.execSync("git reset HEAD --hard && git checkout " + branch, {
-                                            cwd: branchDir,
-                                            stdio: "ignore"
-                                        });
-                                        customPortEnvObj = {};
-                                        customPortEnvObj[this.config.portENV] = lastUsedPort;
-                                        MultiBranch.instances[branch] = {
-                                            process: processes.exec("pwd && npm start", {
-                                                cwd: branchDir,
-                                                env: __assign(__assign(__assign({}, process.env), customPortEnvObj), {
-                                                    RUNNED_BY_MULTIBRANCH: true,
-                                                    BRANCH: branch
-                                                })
-                                            }),
-                                            branch: branch,
-                                            port: lastUsedPort
-                                        };
-                                        MultiBranch.instances[branch].process.stdout.on("data", function (chunk) {
-                                            //console.log(`[${branch}]\n`, (chunk || "").toString());
-                                            process.stdout.write(chunk);
-                                        });
-                                        MultiBranch.instances[branch].process.stderr.on("data", function (chunk) {
-                                            // console.warn(`[${branch}]\n`, (chunk || "").toString());
-                                            process.stderr.write(chunk);
-                                        });
-                                        lastUsedPort++;
-                                        return [2 /*return*/];
-                                }
+                                lastUsedPort++;
+                                return [2 /*return*/, this.runInstance(branch, lastUsedPort)];
                             });
                         }); }; });
                         return [4 /*yield*/, Promise.all(promises.map(function (p) { return p(); }))];
                     case 2:
                         _a.sent();
                         MultiBranch.ready = true;
+                        return [2 /*return*/];
+                }
+            });
+        });
+    };
+    MultiBranch.prototype.runInstance = function (branch, port) {
+        return __awaiter(this, void 0, void 0, function () {
+            var branchDir, customPortEnvObj;
+            var _this = this;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        branchDir = path.join(this.config.repoDir, "..", this.package.name.replace(/ /g, "_") + "-" + branch
+                            .replace(/\//g, "_")
+                            .replace(/ /g, "_"));
+                        return [4 /*yield*/, fs.ensureDir(branchDir)];
+                    case 1:
+                        _a.sent();
+                        return [4 /*yield*/, fs.emptyDir(branchDir)];
+                    case 2:
+                        _a.sent();
+                        console.info("Copying repository to create \"" + branch + "\" branch folder");
+                        return [4 /*yield*/, fs.copy(this.config.repoDir, branchDir)];
+                    case 3:
+                        _a.sent();
+                        processes.execSync("git reset HEAD --hard && git checkout " + branch, {
+                            cwd: branchDir,
+                            stdio: "ignore"
+                        });
+                        customPortEnvObj = {};
+                        customPortEnvObj[this.config.portENV] = port;
+                        MultiBranch.instances[branch] = {
+                            process: processes.exec("pwd && npm start", {
+                                cwd: branchDir,
+                                env: __assign(__assign(__assign({}, process.env), customPortEnvObj), {
+                                    RUNNED_BY_MULTIBRANCH: true,
+                                    BRANCH: branch
+                                })
+                            }),
+                            branch: branch,
+                            port: port
+                        };
+                        MultiBranch.instances[branch].process.stdout.on("data", function (chunk) {
+                            //console.log(`[${branch}]\n`, (chunk || "").toString());
+                            process.stdout.write(chunk);
+                        });
+                        MultiBranch.instances[branch].process.stderr.on("data", function (chunk) {
+                            // console.warn(`[${branch}]\n`, (chunk || "").toString());
+                            process.stderr.write(chunk);
+                        });
+                        MultiBranch.instances[branch].process.on("exit", function (code) {
+                            // console.warn(`[${branch}]\n`, (chunk || "").toString());
+                            console.warn("process of \"" + branch + "\" branch exited(code:" + code + ") ! starting again in 3 seconds ...");
+                            setTimeout(function () {
+                                _this.runInstance(branch, port);
+                            }, 3000);
+                        });
                         return [2 /*return*/];
                 }
             });

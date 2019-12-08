@@ -4,6 +4,7 @@ import { join } from "path";
 
 wrapLogs();
 
+
 MultiBranch.bootstrap({
   portENV: "PORT" || "MULTIBRANCH_UI_PORT",
   repoDir: join(process.cwd(), "..", "example")
