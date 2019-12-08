@@ -147,11 +147,14 @@ export class MultiBranch {
       };
 
       MultiBranch.instances[branch].process.stdout.on("data", chunk => {
-        console.log(`[${branch}]\n`, (chunk || "").toString());
+        //console.log(`[${branch}]\n`, (chunk || "").toString());
+        process.stdout.write(chunk)
       });
 
       MultiBranch.instances[branch].process.stderr.on("data", chunk => {
-        console.warn(`[${branch}]\n`, (chunk || "").toString());
+        // console.warn(`[${branch}]\n`, (chunk || "").toString());
+        process.stderr.write(chunk)
+
       });
 
       lastUsedPort++;

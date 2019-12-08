@@ -184,10 +184,12 @@ var MultiBranch = /** @class */ (function () {
                                             port: lastUsedPort
                                         };
                                         MultiBranch.instances[branch].process.stdout.on("data", function (chunk) {
-                                            console.log("[" + branch + "]\n", (chunk || "").toString());
+                                            //console.log(`[${branch}]\n`, (chunk || "").toString());
+                                            process.stdout.write(chunk);
                                         });
                                         MultiBranch.instances[branch].process.stderr.on("data", function (chunk) {
-                                            console.warn("[" + branch + "]\n", (chunk || "").toString());
+                                            // console.warn(`[${branch}]\n`, (chunk || "").toString());
+                                            process.stderr.write(chunk);
                                         });
                                         lastUsedPort++;
                                         return [2 /*return*/];
