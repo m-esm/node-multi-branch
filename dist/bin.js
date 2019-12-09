@@ -56,6 +56,22 @@ var args = argv
         type: "string"
     },
     {
+        name: "reserve-start-delay",
+        type: "string"
+    },
+    {
+        name: "restart-delay",
+        type: "string"
+    },
+    {
+        name: "interface-port",
+        type: "string"
+    },
+    {
+        name: "port-range-start",
+        type: "string"
+    },
+    {
         name: "dir",
         short: "d",
         type: "string"
@@ -97,7 +113,8 @@ var args = argv
             console.log(chalk.green("\t -h,--help to view help"));
             return [2 /*return*/];
         }
-        if ((process.env["NODE_ENV"] || process.env["NODE_CONFIG_ENV"]) === (args.only || "staging")) {
+        if ((process.env["NODE_ENV"] || process.env["NODE_CONFIG_ENV"]) ===
+            (args.only || "staging")) {
             console.log("\n\n\n", chalk.blueBright(figlet.textSync("MB", { font: "isometric2" })), "\n\n\n");
             process.on("exit", function () {
                 Object.values(_1.MultiBranch.instances).forEach(function (p) {
@@ -107,6 +124,10 @@ var args = argv
             });
             _1.MultiBranch.bootstrap({
                 portENV: args["port-env"],
+                restartWait: parseInt(args["restart-delay"]),
+                interfacePort: parseInt(args["interface-port"]),
+                instancesPortStart: parseInt(args["port-range-start"]),
+                reserveStartDelay: parseInt(args["reserve-start-delay"]),
                 defaultBranch: args["default-branch"],
                 port: parseInt(args.port),
                 branches: args.branches

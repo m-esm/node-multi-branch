@@ -65,6 +65,7 @@ var UI = /** @class */ (function () {
                             res.json(process_monitor_1.monitoringHistory);
                         });
                         this.server.get("/instance-not-found/:branch", function (req, res) {
+                            req.params.branch = decodeURIComponent(req.params.branch);
                             res.writeHead(404, "branch not found");
                             res.end("\n      <!DOCTYPE html>\n      <html lang=\"en\">\n      <head>\n          <meta charset=\"UTF-8\">\n          <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n          <meta http-equiv=\"X-UA-Compatible\" content=\"ie=edge\">\n          <title>Branch not found</title>\n          <style>\n          body{\n              font-family: monospace;\n              color:#fff;\n              background: #111;\n              padding:15px;\n              font-size: 17px;\n          }\n          </style>\n      </head>\n      <body>\n          Branch \"" + req.params.branch + "\" not found !\n      </body>\n      </html>\n      ");
                         });
@@ -77,8 +78,10 @@ var UI = /** @class */ (function () {
                             res.json({
                                 NODE_ENV: process.env["NODE_ENV"],
                                 BRANCH: process.env["BRANCH"],
-                                processes: Object.values(MultiBranch_1.MultiBranch.instances).map(function (p) {
-                                    p = _.pick(p, "port", "branch", "process.pid");
+                                instances: Object.keys(MultiBranch_1.MultiBranch.instances),
+                                processes: _.sortBy(Object.keys(MultiBranch_1.MultiBranch.instances), function (k) { return k; }).map(function (k) {
+                                    var instance = MultiBranch_1.MultiBranch.instances[k];
+                                    var p = __assign({ name: k }, _.pick(instance, "started", "port", "branch", "process.pid"));
                                     if (p.process && p.process.pid) {
                                         var stat = _.sortBy(process_monitor_1.monitoringHistory.filter(function (d) { return d && d.pid == p.process.pid; }), function (d) { return d.date * -1; })[0] || {};
                                         p.process.stats = __assign({ date: stat.date }, stat.result);
@@ -102,18 +105,17 @@ var UI = /** @class */ (function () {
         return __awaiter(this, void 0, void 0, function () {
             var _this = this;
             return __generator(this, function (_a) {
-                this.pids = Object.values(MultiBranch_1.MultiBranch.instances).map(function (p) { return p.process.pid; });
-                if (this.pids.length)
-                    console.info("Monitoring PID's:", this.pids.join(" , "));
+                this.pids = Object.values(MultiBranch_1.MultiBranch.instances)
+                    .filter(function (p) { return p && p.process && p.process.pid; })
+                    .map(function (p) { return p.process.pid; });
                 if (this.pids.length != 0) {
                     process_monitor_1.monitor({
-                        pid: this.pids,
-                        interval: 1000
+                        pid: this.pids
                     });
                 }
                 setTimeout(function () {
                     _this.setupMonitoring();
-                }, 10000);
+                }, 1000);
                 return [2 /*return*/];
             });
         });

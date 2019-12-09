@@ -1,6 +1,6 @@
 {
   "name": "multi-branch",
-  "version": "1.0.17",
+  "version": "1.0.19",
   "description": "It runs an instance per branch of your node project repository. and let you access different branches by setting a header key",
   "main": "index.js",
   "scripts": {
@@ -38,17 +38,18 @@
     "@types/fs-extra": "^8.0.1",
     "@types/lodash": "^4.14.149",
     "@types/node": "^12.12.14",
+    "@types/usage": "0.0.28",
     "argv": "0.0.2",
     "chalk": "^3.0.0",
     "express": "^4.17.1",
     "figlet": "^1.2.4",
     "fs-extra": "^8.1.0",
     "lodash": "^4.17.15",
-    "pidusage": "^2.0.17",
     "redbird": "^0.9.1",
     "ts-node": "^8.5.4",
     "ts-node-dev": "^1.0.0-pre.44",
-    "typescript": "^3.7.3"
+    "typescript": "^3.7.3",
+    "usage": "^0.7.1"
   },
   "devDependencies": {}
 }

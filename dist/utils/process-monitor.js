@@ -36,41 +36,27 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 exports.__esModule = true;
-var usage = require("pidusage");
-/*
- process-monitor API
--------------------------------------------------------------------------- */
-/**
- * Process-monitor API definition.
- * @param  {object}   config Configuration options.
- * @return {ProcMon}  Chainable instance of ProcMon.
- */
+var usage = require("usage");
 var monitoringTimeout;
 function monitor(config) {
     return __awaiter(this, void 0, void 0, function () {
         var lookups;
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0:
-                    if (monitoringTimeout)
-                        clearTimeout(monitoringTimeout);
-                    return [4 /*yield*/, Promise.all(config.pid.map(function (pid) {
-                            return new Promise(function (resolve) {
-                                usage(pid, function (err, result) {
-                                    return resolve({ pid: pid, result: result, date: new Date() });
-                                });
-                            });
-                        }))];
+                case 0: return [4 /*yield*/, Promise.all(config.pid.map(function (pid) {
+                        return new Promise(function (resolve) {
+                            usage.lookup(pid, {
+                                keepHistory: true
+                            }, function (err, result) { return resolve({ pid: pid, result: result, date: new Date(), err: err }); });
+                        });
+                    }))];
                 case 1:
                     lookups = _a.sent();
                     lookups.forEach(function (p) {
-                        if (exports.monitoringHistory.length > 100)
+                        if (exports.monitoringHistory.length > 1000)
                             exports.monitoringHistory.shift();
                         exports.monitoringHistory.push(p);
                     });
-                    monitoringTimeout = setTimeout(function () {
-                        monitor(config);
-                    }, config.interval);
                     return [2 /*return*/];
             }
         });

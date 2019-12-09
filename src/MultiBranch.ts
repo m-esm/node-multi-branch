@@ -10,19 +10,23 @@ export class MultiBranch {
   static instances: {
     [key: string]: {
       branch: string;
+      started: Date;
       port: number;
       process: processes.ChildProcess;
     };
   } = {};
   static proxy: any;
   static ready: boolean;
+  static lastUsedPort: number;
   static async bootstrap(config: MultiBranchConfigInterface) {
     config = {
       ...{
+        reserveStartDelay: 3000,
         port: parseInt(process.env["PORT"]) || 3000,
         repoDir: process.cwd(),
         portENV: "PORT",
         defaultBranch: "master",
+        restartWait: 100,
         instancesPortStart: 7000,
         interfacePort: parseInt(process.env["MULTIBRANCH_UI_PORT"]) || 8000
       },
@@ -42,10 +46,12 @@ export class MultiBranch {
       console.warn(
         `Process is exiting with code ${code} ! closing processes ...`
       );
-      Object.values(MultiBranch.instances).forEach(instance => {
-        console.warn(`Closing instance: ${instance.branch}`);
-        instance.process.kill("SIGKILL");
-      });
+      Object.values(MultiBranch.instances)
+        .filter(p => p && p.process)
+        .forEach(instance => {
+          console.warn(`Closing instance: ${instance.branch}`);
+          instance.process.kill("SIGKILL");
+        });
     });
   }
 
@@ -102,12 +108,10 @@ export class MultiBranch {
         .map(p => _.trim(p, "* "))
         .filter(p => p);
 
-    let lastUsedPort = this.config.instancesPortStart;
+    MultiBranch.lastUsedPort = this.config.instancesPortStart;
 
     const promises = branches.map(branch => async () => {
-      lastUsedPort++;
-
-      return this.runInstance(branch, lastUsedPort);
+      return this.runInstance(branch);
     });
 
     await Promise.all(promises.map(p => p()));
@@ -115,7 +119,18 @@ export class MultiBranch {
     MultiBranch.ready = true;
   }
 
-  async runInstance(branch: string, port: number) {
+  async runInstance(
+    branch: string,
+    reserve: boolean = false,
+    wasExited: boolean = false
+  ) {
+    if (reserve && MultiBranch.instances[branch + "|RESERVE"]) {
+      return;
+    }
+    MultiBranch.lastUsedPort++;
+
+    const port = MultiBranch.lastUsedPort;
+
     const branchDir = path.join(
       this.config.repoDir,
       "..",
@@ -124,57 +139,71 @@ export class MultiBranch {
         .replace(/ /g, "_")}`
     );
 
-    await fs.ensureDir(branchDir);
+    if (!reserve && !wasExited) {
+      await fs.ensureDir(branchDir);
+      await fs.emptyDir(branchDir);
+      console.info(`Copying repository to create "${branch}" branch folder`);
+      await fs.copy(this.config.repoDir, branchDir);
 
-    await fs.emptyDir(branchDir);
-
-    console.info(`Copying repository to create "${branch}" branch folder`);
-
-    await fs.copy(this.config.repoDir, branchDir);
-
-    processes.execSync(`git reset HEAD --hard && git checkout ${branch}`, {
-      cwd: branchDir,
-      stdio: "ignore"
-    });
+      processes.execSync(`git reset HEAD --hard && git checkout ${branch}`, {
+        cwd: branchDir,
+        stdio: "ignore"
+      });
+    }
 
     const customPortEnvObj = {};
 
     customPortEnvObj[this.config.portENV] = port;
 
-    MultiBranch.instances[branch] = {
+    MultiBranch.instances[branch + (reserve ? "|RESERVE" : "")] = {
       process: processes.exec("pwd && npm start", {
-        cwd: branchDir,
-        env: {
-          ...(process.env as any),
-          ...customPortEnvObj,
-          ...{
-            RUNNED_BY_MULTIBRANCH: true,
-            BRANCH: branch
-          }
-        }
-      }),
+            cwd: branchDir,
+            env: {
+              ...(process.env as any),
+              ...customPortEnvObj,
+              ...{
+                RUNNED_BY_MULTIBRANCH: true,
+                BRANCH: branch
+              }
+            }
+          }),
       branch,
+      started: new Date(),
       port: port
     };
 
-    MultiBranch.instances[branch].process.stdout.on("data", chunk => {
-      //console.log(`[${branch}]\n`, (chunk || "").toString());
-      process.stdout.write(chunk);
-    });
-
-    MultiBranch.instances[branch].process.stderr.on("data", chunk => {
-      // console.warn(`[${branch}]\n`, (chunk || "").toString());
-      process.stderr.write(chunk);
-    });
-    MultiBranch.instances[branch].process.on("exit", code => {
-      // console.warn(`[${branch}]\n`, (chunk || "").toString());
-      console.warn(
-        `process of "${branch}" branch exited(code:${code}) ! starting again in 3 seconds ...`
-      );
+    if (!reserve) {
       setTimeout(() => {
-        this.runInstance(branch, port);
-      }, 3000);
-    });
+        // start  reserve instance
+        this.runInstance(branch, true);
+      }, this.config.reserveStartDelay);
+    }
+
+    const originalBranchName = branch;
+    branch = branch + (reserve ? "|RESERVE" : "");
+
+    const instanceProcess = (MultiBranch.instances[branch] || {}).process;
+
+    if (instanceProcess) {
+      instanceProcess.stdout.on("data", chunk => {
+        //console.log(`[${branch}]\n`, (chunk || "").toString());
+        process.stdout.write(chunk);
+      });
+
+      instanceProcess.stderr.on("data", chunk => {
+        // console.warn(`[${branch}]\n`, (chunk || "").toString());
+        process.stderr.write(chunk);
+      });
+      instanceProcess.on("exit", code => {
+        console.warn(
+          `process of "${branch}" branch exited(code:${code}) ! starting again in ${this.config.restartWait} ms ...`
+        );
+        setTimeout(() => {
+          this.runInstance(originalBranchName, reserve, true);
+        }, this.config.restartWait);
+        MultiBranch.instances[branch] = null;
+      });
+    }
   }
   async setupProxy() {
     console.info(
@@ -198,10 +227,24 @@ export class MultiBranch {
           if (branch.startsWith("http://") || branch.startsWith("https://")) {
             return branch;
           } else {
-            const instance = MultiBranch.instances[branch];
+            let instance = null;
+
+            if (
+              MultiBranch.instances[branch] &&
+              MultiBranch.instances[branch].process
+            )
+              instance = MultiBranch.instances[branch];
+            else if (
+              MultiBranch.instances[branch + "|RESERVE"] &&
+              MultiBranch.instances[branch + "|RESERVE"].process
+            )
+              instance = MultiBranch.instances[branch + "|RESERVE"];
+
             if (!instance)
-              return `http://localhost:${this.config.interfacePort}/instance-not-found/${branch}`;
-            return `http://localhost:${MultiBranch.instances[branch].port}`;
+              return `http://localhost:${
+                this.config.interfacePort
+              }/instance-not-found/${encodeURIComponent(branch)}`;
+            return `http://localhost:${instance.port}`;
           }
         }
       ]
@@ -211,10 +254,12 @@ export class MultiBranch {
 
 export interface MultiBranchConfigInterface {
   branches?: string[];
+  reserveStartDelay?: number;
   port?: number;
   repoDir?: string;
   portENV?: string;
 
+  restartWait?: number;
   defaultBranch?: string;
 
   instancesPortStart?: number;

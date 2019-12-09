@@ -69,10 +69,12 @@ var MultiBranch = /** @class */ (function () {
         return __awaiter(this, void 0, void 0, function () {
             return __generator(this, function (_a) {
                 config = __assign({
+                    reserveStartDelay: 3000,
                     port: parseInt(process.env["PORT"]) || 3000,
                     repoDir: process.cwd(),
                     portENV: "PORT",
                     defaultBranch: "master",
+                    restartWait: 100,
                     instancesPortStart: 7000,
                     interfacePort: parseInt(process.env["MULTIBRANCH_UI_PORT"]) || 8000
                 }, _.pickBy(config, function (value) {
@@ -85,7 +87,9 @@ var MultiBranch = /** @class */ (function () {
                 new MultiBranch(config);
                 process.on("exit", function (code) {
                     console.warn("Process is exiting with code " + code + " ! closing processes ...");
-                    Object.values(MultiBranch.instances).forEach(function (instance) {
+                    Object.values(MultiBranch.instances)
+                        .filter(function (p) { return p && p.process; })
+                        .forEach(function (instance) {
                         console.warn("Closing instance: " + instance.branch);
                         instance.process.kill("SIGKILL");
                     });
@@ -127,7 +131,7 @@ var MultiBranch = /** @class */ (function () {
     };
     MultiBranch.prototype.init = function () {
         return __awaiter(this, void 0, void 0, function () {
-            var branches, lastUsedPort, promises;
+            var branches, promises;
             var _this = this;
             return __generator(this, function (_a) {
                 switch (_a.label) {
@@ -147,11 +151,10 @@ var MultiBranch = /** @class */ (function () {
                                 .split("\n")
                                 .map(function (p) { return _.trim(p, "* "); })
                                 .filter(function (p) { return p; });
-                        lastUsedPort = this.config.instancesPortStart;
+                        MultiBranch.lastUsedPort = this.config.instancesPortStart;
                         promises = branches.map(function (branch) { return function () { return __awaiter(_this, void 0, void 0, function () {
                             return __generator(this, function (_a) {
-                                lastUsedPort++;
-                                return [2 /*return*/, this.runInstance(branch, lastUsedPort)];
+                                return [2 /*return*/, this.runInstance(branch)];
                             });
                         }); }; });
                         return [4 /*yield*/, Promise.all(promises.map(function (p) { return p(); }))];
@@ -163,16 +166,24 @@ var MultiBranch = /** @class */ (function () {
             });
         });
     };
-    MultiBranch.prototype.runInstance = function (branch, port) {
+    MultiBranch.prototype.runInstance = function (branch, reserve, wasExited) {
+        if (reserve === void 0) { reserve = false; }
+        if (wasExited === void 0) { wasExited = false; }
         return __awaiter(this, void 0, void 0, function () {
-            var branchDir, customPortEnvObj;
+            var port, branchDir, customPortEnvObj, originalBranchName, instanceProcess;
             var _this = this;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
+                        if (reserve && MultiBranch.instances[branch + "|RESERVE"]) {
+                            return [2 /*return*/];
+                        }
+                        MultiBranch.lastUsedPort++;
+                        port = MultiBranch.lastUsedPort;
                         branchDir = path.join(this.config.repoDir, "..", this.package.name.replace(/ /g, "_") + "-" + branch
                             .replace(/\//g, "_")
                             .replace(/ /g, "_"));
+                        if (!(!reserve && !wasExited)) return [3 /*break*/, 4];
                         return [4 /*yield*/, fs.ensureDir(branchDir)];
                     case 1:
                         _a.sent();
@@ -187,9 +198,11 @@ var MultiBranch = /** @class */ (function () {
                             cwd: branchDir,
                             stdio: "ignore"
                         });
+                        _a.label = 4;
+                    case 4:
                         customPortEnvObj = {};
                         customPortEnvObj[this.config.portENV] = port;
-                        MultiBranch.instances[branch] = {
+                        MultiBranch.instances[branch + (reserve ? "|RESERVE" : "")] = {
                             process: processes.exec("pwd && npm start", {
                                 cwd: branchDir,
                                 env: __assign(__assign(__assign({}, process.env), customPortEnvObj), {
@@ -198,23 +211,35 @@ var MultiBranch = /** @class */ (function () {
                                 })
                             }),
                             branch: branch,
+                            started: new Date(),
                             port: port
                         };
-                        MultiBranch.instances[branch].process.stdout.on("data", function (chunk) {
-                            //console.log(`[${branch}]\n`, (chunk || "").toString());
-                            process.stdout.write(chunk);
-                        });
-                        MultiBranch.instances[branch].process.stderr.on("data", function (chunk) {
-                            // console.warn(`[${branch}]\n`, (chunk || "").toString());
-                            process.stderr.write(chunk);
-                        });
-                        MultiBranch.instances[branch].process.on("exit", function (code) {
-                            // console.warn(`[${branch}]\n`, (chunk || "").toString());
-                            console.warn("process of \"" + branch + "\" branch exited(code:" + code + ") ! starting again in 3 seconds ...");
+                        if (!reserve) {
                             setTimeout(function () {
-                                _this.runInstance(branch, port);
-                            }, 3000);
-                        });
+                                // start  reserve instance
+                                _this.runInstance(branch, true);
+                            }, this.config.reserveStartDelay);
+                        }
+                        originalBranchName = branch;
+                        branch = branch + (reserve ? "|RESERVE" : "");
+                        instanceProcess = (MultiBranch.instances[branch] || {}).process;
+                        if (instanceProcess) {
+                            instanceProcess.stdout.on("data", function (chunk) {
+                                //console.log(`[${branch}]\n`, (chunk || "").toString());
+                                process.stdout.write(chunk);
+                            });
+                            instanceProcess.stderr.on("data", function (chunk) {
+                                // console.warn(`[${branch}]\n`, (chunk || "").toString());
+                                process.stderr.write(chunk);
+                            });
+                            instanceProcess.on("exit", function (code) {
+                                console.warn("process of \"" + branch + "\" branch exited(code:" + code + ") ! starting again in " + _this.config.restartWait + " ms ...");
+                                setTimeout(function () {
+                                    _this.runInstance(originalBranchName, reserve, true);
+                                }, _this.config.restartWait);
+                                MultiBranch.instances[branch] = null;
+                            });
+                        }
                         return [2 /*return*/];
                 }
             });
@@ -240,10 +265,16 @@ var MultiBranch = /** @class */ (function () {
                                 return branch;
                             }
                             else {
-                                var instance = MultiBranch.instances[branch];
+                                var instance = null;
+                                if (MultiBranch.instances[branch] &&
+                                    MultiBranch.instances[branch].process)
+                                    instance = MultiBranch.instances[branch];
+                                else if (MultiBranch.instances[branch + "|RESERVE"] &&
+                                    MultiBranch.instances[branch + "|RESERVE"].process)
+                                    instance = MultiBranch.instances[branch + "|RESERVE"];
                                 if (!instance)
-                                    return "http://localhost:" + _this.config.interfacePort + "/instance-not-found/" + branch;
-                                return "http://localhost:" + MultiBranch.instances[branch].port;
+                                    return "http://localhost:" + _this.config.interfacePort + "/instance-not-found/" + encodeURIComponent(branch);
+                                return "http://localhost:" + instance.port;
                             }
                         }
                     ]

@@ -25,6 +25,22 @@ const args: any = argv
       type: "string"
     },
     {
+      name: "reserve-start-delay",
+      type: "string"
+    },
+    {
+      name: "restart-delay",
+      type: "string"
+    },
+    {
+      name: "interface-port",
+      type: "string"
+    },
+    {
+      name: "port-range-start",
+      type: "string"
+    },
+    {
       name: "dir",
       short: "d",
       type: "string"
@@ -76,7 +92,10 @@ const args: any = argv
     return;
   }
 
-  if ((process.env["NODE_ENV"] || process.env["NODE_CONFIG_ENV"]  ) === (args.only || "staging")) {
+  if (
+    (process.env["NODE_ENV"] || process.env["NODE_CONFIG_ENV"]) ===
+    (args.only || "staging")
+  ) {
     console.log(
       "\n\n\n",
       chalk.blueBright(figlet.textSync("MB", { font: "isometric2" })),
@@ -92,6 +111,10 @@ const args: any = argv
 
     MultiBranch.bootstrap({
       portENV: args["port-env"],
+      restartWait: parseInt(args["restart-delay"]),
+      interfacePort: parseInt(args["interface-port"]),
+      instancesPortStart: parseInt(args["port-range-start"]),
+      reserveStartDelay: parseInt(args["reserve-start-delay"]),
       defaultBranch: args["default-branch"],
       port: parseInt(args.port),
       branches: args.branches

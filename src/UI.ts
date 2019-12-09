@@ -14,6 +14,7 @@ export class UI {
     });
 
     this.server.get("/instance-not-found/:branch", (req, res) => {
+      req.params.branch = decodeURIComponent(req.params.branch);
       res.writeHead(404, "branch not found");
       res.end(`
       <!DOCTYPE html>
@@ -102,18 +103,27 @@ ${logHistory.join("\n")}
       res.json({
         NODE_ENV: process.env["NODE_ENV"],
         BRANCH: process.env["BRANCH"],
-        processes: Object.values(MultiBranch.instances).map((p: any) => {
-          p = _.pick(p, "port", "branch", "process.pid");
-          if (p.process && p.process.pid) {
-            const stat =
-              _.sortBy(
-                monitoringHistory.filter(d => d && d.pid == p.process.pid),
-                d => d.date * -1
-              )[0] || {};
-            p.process.stats = { ...{ date: stat.date }, ...stat.result };
+        instances: Object.keys(MultiBranch.instances),
+        processes: _.sortBy(Object.keys(MultiBranch.instances), k => k).map(
+          k => {
+            const instance = MultiBranch.instances[k];
+
+            const p: any = {
+              ...{ name: k },
+              ..._.pick(instance, "started", "port", "branch", "process.pid")
+            };
+
+            if (p.process && p.process.pid) {
+              const stat =
+                _.sortBy(
+                  monitoringHistory.filter(d => d && d.pid == p.process.pid),
+                  d => d.date * -1
+                )[0] || {};
+              p.process.stats = { ...{ date: stat.date }, ...stat.result };
+            }
+            return p;
           }
-          return p;
-        })
+        )
       });
     });
 
@@ -126,19 +136,18 @@ ${logHistory.join("\n")}
   }
 
   static async setupMonitoring() {
-    this.pids = Object.values(MultiBranch.instances).map(p => p.process.pid);
+    this.pids = Object.values(MultiBranch.instances)
+      .filter(p => p && p.process && p.process.pid)
+      .map(p => p.process.pid);
 
-    if (this.pids.length)
-      console.info("Monitoring PID's:", this.pids.join(" , "));
     if (this.pids.length != 0) {
       monitor({
-        pid: this.pids,
-        interval: 1000
+        pid: this.pids
       });
     }
 
     setTimeout(() => {
       this.setupMonitoring();
-    }, 10000);
+    }, 1000);
   }
 }
