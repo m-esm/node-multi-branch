@@ -52,7 +52,14 @@ var _ = require("lodash");
 var path = require("path");
 var fs = require("fs-extra");
 var UI_1 = require("./UI");
-var redbird = require("redbird");
+var Proxy = require("http-proxy");
+var http = require("http");
+process.on("uncaughtException", function (error) {
+    console.error("uncaughtException", error);
+});
+process.on("unhandledRejection", function (error) {
+    console.error("unhandledRejection", error);
+});
 var MultiBranch = /** @class */ (function () {
     function MultiBranch(config) {
         this.config = config;
@@ -70,7 +77,10 @@ var MultiBranch = /** @class */ (function () {
             return __generator(this, function (_a) {
                 config = __assign({
                     reserveStartDelay: 3000,
-                    port: parseInt(process.env["PORT"]) || 3000,
+                    port: parseInt(process.env["PORT"]) ||
+                        parseInt(process.env["HTTP_PORT"]) ||
+                        parseInt(process.env["HTTP_SERVER_PORT"]) ||
+                        3000,
                     repoDir: process.cwd(),
                     portENV: "PORT",
                     defaultBranch: "master",
@@ -166,11 +176,11 @@ var MultiBranch = /** @class */ (function () {
             });
         });
     };
-    MultiBranch.prototype.runInstance = function (branch, reserve, wasExited) {
+    MultiBranch.prototype.runInstance = function (branch, port, reserve, wasExited) {
         if (reserve === void 0) { reserve = false; }
         if (wasExited === void 0) { wasExited = false; }
         return __awaiter(this, void 0, void 0, function () {
-            var port, branchDir, customPortEnvObj, originalBranchName, instanceProcess;
+            var lsof, pid, branchDir, customPortEnvObj, originalBranchName, instanceProcess;
             var _this = this;
             return __generator(this, function (_a) {
                 switch (_a.label) {
@@ -178,8 +188,27 @@ var MultiBranch = /** @class */ (function () {
                         if (reserve && MultiBranch.instances[branch + "|RESERVE"]) {
                             return [2 /*return*/];
                         }
-                        MultiBranch.lastUsedPort++;
-                        port = MultiBranch.lastUsedPort;
+                        if (!wasExited && !port)
+                            MultiBranch.lastUsedPort += 1;
+                        if (!port)
+                            port = MultiBranch.lastUsedPort;
+                        console.info("Run instance", { branch: branch, reserve: reserve, wasExited: wasExited, port: port });
+                        try {
+                            lsof = processes
+                                .execSync("lsof -i:" + port)
+                                .toString()
+                                .split("\n")[1] || "";
+                            console.log("lsof", lsof);
+                            pid = lsof.split(" ").filter(function (p) { return p; })[1];
+                            console.log(pid);
+                            if (pid)
+                                processes.execSync("kill " + pid + " -9");
+                        }
+                        catch (e) {
+                            if (!e)
+                                e = { message: "unknown error" };
+                            console.warn(e.message || e);
+                        }
                         branchDir = path.join(this.config.repoDir, "..", this.package.name.replace(/ /g, "_") + "-" + branch
                             .replace(/\//g, "_")
                             .replace(/ /g, "_"));
@@ -203,7 +232,7 @@ var MultiBranch = /** @class */ (function () {
                         customPortEnvObj = {};
                         customPortEnvObj[this.config.portENV] = port;
                         MultiBranch.instances[branch + (reserve ? "|RESERVE" : "")] = {
-                            process: processes.exec("pwd && npm start", {
+                            process: processes.exec("npm start", {
                                 cwd: branchDir,
                                 env: __assign(__assign(__assign({}, process.env), customPortEnvObj), {
                                     RUNNED_BY_MULTIBRANCH: true,
@@ -214,10 +243,10 @@ var MultiBranch = /** @class */ (function () {
                             started: new Date(),
                             port: port
                         };
-                        if (!reserve) {
+                        if (!reserve && !wasExited) {
                             setTimeout(function () {
                                 // start  reserve instance
-                                _this.runInstance(branch, true);
+                                _this.runInstance(branch, null, true, false);
                             }, this.config.reserveStartDelay);
                         }
                         originalBranchName = branch;
@@ -235,7 +264,7 @@ var MultiBranch = /** @class */ (function () {
                             instanceProcess.on("exit", function (code) {
                                 console.warn("process of \"" + branch + "\" branch exited(code:" + code + ") ! starting again in " + _this.config.restartWait + " ms ...");
                                 setTimeout(function () {
-                                    _this.runInstance(originalBranchName, reserve, true);
+                                    _this.runInstance(originalBranchName, port, reserve, true);
                                 }, _this.config.restartWait);
                                 MultiBranch.instances[branch] = null;
                             });
@@ -247,37 +276,53 @@ var MultiBranch = /** @class */ (function () {
     };
     MultiBranch.prototype.setupProxy = function () {
         return __awaiter(this, void 0, void 0, function () {
+            var proxy, server;
             var _this = this;
             return __generator(this, function (_a) {
-                console.info("MultiBranch PROXY is available at http://0.0.0.0:" + this.config.port + " ");
-                MultiBranch.proxy = new redbird({
-                    port: this.config.port,
-                    resolvers: [
-                        function (host, url, req) {
-                            if (url.startsWith("/multi-branch")) {
-                                req.url = req.url.replace("/multi-branch", "/");
-                                return "http://localhost:" + _this.config.interfacePort;
-                            }
-                            if (!MultiBranch.ready)
-                                return "http://localhost:" + _this.config.interfacePort + "/logs";
-                            var branch = req.headers.branch || _this.config.defaultBranch;
-                            if (branch.startsWith("http://") || branch.startsWith("https://")) {
-                                return branch;
-                            }
-                            else {
-                                var instance = null;
-                                if (MultiBranch.instances[branch] &&
-                                    MultiBranch.instances[branch].process)
-                                    instance = MultiBranch.instances[branch];
-                                else if (MultiBranch.instances[branch + "|RESERVE"] &&
-                                    MultiBranch.instances[branch + "|RESERVE"].process)
-                                    instance = MultiBranch.instances[branch + "|RESERVE"];
-                                if (!instance)
-                                    return "http://localhost:" + _this.config.interfacePort + "/instance-not-found/" + encodeURIComponent(branch);
-                                return "http://localhost:" + instance.port;
-                            }
-                        }
-                    ]
+                proxy = Proxy.createProxyServer({
+                    ws: true,
+                    xfwd: true
+                });
+                server = http.createServer(function (req, res) { return __awaiter(_this, void 0, void 0, function () {
+                    var _this = this;
+                    return __generator(this, function (_a) {
+                        (function () { return __awaiter(_this, void 0, void 0, function () {
+                            var url, branch, instance, target;
+                            return __generator(this, function (_a) {
+                                url = req.url;
+                                if (url.startsWith("/multi-branch")) {
+                                    req.url = req.url.replace("/multi-branch", "/");
+                                    return [2 /*return*/, "http://localhost:" + this.config.interfacePort];
+                                }
+                                if (!MultiBranch.ready)
+                                    return [2 /*return*/, "http://localhost:" + this.config.interfacePort + "/logs"];
+                                branch = req.headers["branch"] || this.config.defaultBranch;
+                                if (branch.startsWith("http://") || branch.startsWith("https://")) {
+                                    return [2 /*return*/, proxy.web(req, res, { target: branch })];
+                                }
+                                else {
+                                    instance = null;
+                                    if (MultiBranch.instances[branch] &&
+                                        MultiBranch.instances[branch].process)
+                                        instance = MultiBranch.instances[branch];
+                                    else if (MultiBranch.instances[branch + "|RESERVE"] &&
+                                        MultiBranch.instances[branch + "|RESERVE"].process)
+                                        instance = MultiBranch.instances[branch + "|RESERVE"];
+                                    target = "";
+                                    if (!instance)
+                                        target = "http://localhost:" + this.config.interfacePort + "/instance-not-found/" + encodeURIComponent(branch);
+                                    target = "http://localhost:" + instance.port;
+                                    return [2 /*return*/, proxy.web(req, res, { target: target })];
+                                }
+                                return [2 /*return*/];
+                            });
+                        }); })()
+                            .then(function () { })["catch"](console.error);
+                        return [2 /*return*/];
+                    });
+                }); });
+                server.listen(this.config.port, "0.0.0.0", function () {
+                    console.info("MultiBranch PROXY is available at http://0.0.0.0:" + _this.config.port + " ");
                 });
                 return [2 /*return*/];
             });
