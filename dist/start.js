@@ -6,6 +6,7 @@ var path_1 = require("path");
 wrap_logs_1["default"]();
 _1.MultiBranch.bootstrap({
     portENV: "PORT" || "MULTIBRANCH_UI_PORT",
+    branches: ['master'],
     repoDir: path_1.join(process.cwd(), "..", "example"),
     restartWait: 1000,
     reserveStartDelay: 1000

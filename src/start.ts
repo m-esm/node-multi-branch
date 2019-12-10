@@ -6,6 +6,7 @@ wrapLogs();
 
 MultiBranch.bootstrap({
   portENV: "PORT" || "MULTIBRANCH_UI_PORT",
+  branches : ['master'],
   repoDir: join(process.cwd(), "..", "example"),
   restartWait: 1000,
   reserveStartDelay: 1000

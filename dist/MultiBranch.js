@@ -280,8 +280,15 @@ var MultiBranch = /** @class */ (function () {
             var _this = this;
             return __generator(this, function (_a) {
                 proxy = Proxy.createProxyServer({
-                    ws: true,
                     xfwd: true
+                });
+                proxy.on("upgrade", function (req, socket, head) {
+                    try {
+                        proxy.ws(req, socket, head);
+                    }
+                    catch (e) {
+                        console.warn(e);
+                    }
                 });
                 server = http.createServer(function (req, res) { return __awaiter(_this, void 0, void 0, function () {
                     var _this = this;
@@ -292,10 +299,14 @@ var MultiBranch = /** @class */ (function () {
                                 url = req.url;
                                 if (url.startsWith("/multi-branch")) {
                                     req.url = req.url.replace("/multi-branch", "/");
-                                    return [2 /*return*/, "http://localhost:" + this.config.interfacePort];
+                                    return [2 /*return*/, proxy.web(req, res, {
+                                            target: "http://localhost:" + this.config.interfacePort
+                                        })];
                                 }
                                 if (!MultiBranch.ready)
-                                    return [2 /*return*/, "http://localhost:" + this.config.interfacePort + "/logs"];
+                                    return [2 /*return*/, proxy.web(req, res, {
+                                            target: "http://localhost:" + this.config.interfacePort + "/logs"
+                                        })];
                                 branch = req.headers["branch"] || this.config.defaultBranch;
                                 if (branch.startsWith("http://") || branch.startsWith("https://")) {
                                     return [2 /*return*/, proxy.web(req, res, { target: branch })];

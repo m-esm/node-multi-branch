@@ -242,8 +242,15 @@ export class MultiBranch {
   }
   async setupProxy() {
     const proxy = Proxy.createProxyServer({
-      ws: true,
       xfwd: true
+    });
+
+    (proxy as any).on("upgrade", (req, socket, head) => {
+      try {
+        proxy.ws(req, socket, head);
+      } catch (e) {
+        console.warn(e);
+      }
     });
 
     var server = http.createServer(async (req, res) => {
@@ -251,12 +258,17 @@ export class MultiBranch {
         // You can define here your custom logic to handle the request
         // and then proxy the request.
         const url = req.url;
+
         if (url.startsWith("/multi-branch")) {
           req.url = req.url.replace("/multi-branch", "/");
-          return `http://localhost:${this.config.interfacePort}`;
+          return proxy.web(req, res, {
+            target: `http://localhost:${this.config.interfacePort}`
+          });
         }
         if (!MultiBranch.ready)
-          return `http://localhost:${this.config.interfacePort}/logs`;
+          return proxy.web(req, res, {
+            target: `http://localhost:${this.config.interfacePort}/logs`
+          });
         const branch: string =
           (req.headers["branch"] as any) || this.config.defaultBranch;
         if (branch.startsWith("http://") || branch.startsWith("https://")) {
