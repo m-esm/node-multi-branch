@@ -13,7 +13,11 @@
 
 ### Multi Branch
 
-It runs an instance per branch of your node project repository. and let you access different branches by setting a header key.
+did you ever want to run more than one branch of your code at a time? and have the ability to switch between them by simply setting an HTTP header key named 'branch'
+
+To easily use multi-branch install [ModHeader extension for chrome](https://chrome.google.com/webstore/detail/modheader/idgpnmonknjnojddfkpgkljpfnnfcklj?hl=en). you can set the "branch" header key with this tool.
+
+
 
 ### Installation
 
