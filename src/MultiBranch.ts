@@ -191,7 +191,7 @@ export class MultiBranch {
     customPortEnvObj[this.config.portENV] = port;
 
     MultiBranch.instances[branch + (reserve ? "|RESERVE" : "")] = {
-      process: processes.exec("npm start", {
+      process: processes.exec(`npm run ${process.env.NPM_START_COMMAND || 'start'}`, {
         cwd: branchDir,
         env: {
           ...(process.env as any),

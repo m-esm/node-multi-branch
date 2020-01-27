@@ -232,7 +232,7 @@ var MultiBranch = /** @class */ (function () {
                         customPortEnvObj = {};
                         customPortEnvObj[this.config.portENV] = port;
                         MultiBranch.instances[branch + (reserve ? "|RESERVE" : "")] = {
-                            process: processes.exec("npm start", {
+                            process: processes.exec("npm run " + (process.env.NPM_START_COMMAND || 'start'), {
                                 cwd: branchDir,
                                 env: __assign(__assign(__assign({}, process.env), customPortEnvObj), {
                                     RUNNED_BY_MULTIBRANCH: true,
